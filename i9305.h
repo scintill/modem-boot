@@ -28,6 +28,7 @@
 #define WAIT_FOR_RESTART	_IOR(CHARM_CODE, 7, int)
 
 #define MAX_DATA_SEND_SIZE 1*1024*1024
+#define MAX_MEMORY_CHUNK_SIZE 16383
 
 // files to upload
 #define FILE_APPS "/firmware/image/apps.mbn"

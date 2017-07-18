@@ -98,9 +98,7 @@ struct sah_memory_table {
 	unsigned char file[20];
 } __attribute__((__packed__));
 
-int hello_response(int tty_fd, int mode);
-int hello_handshake(int tty_fd, int mode);
 int send_file(int tty_fd, struct sah_data_end_ack *data_end_ack);
-int handle_memory_debug(int tty_fd);
+int handle_memory_debug(int tty_fd, int *hellos);
 
 #endif

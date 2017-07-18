@@ -37,24 +37,33 @@ int check_mode(int mode_recv, int mode_expected)
 		return -1;
 }
 
+int read_hello_data(int tty_fd, int mode, struct sah_hello_req *hello_req)
+{
+	int rc;
+
+	rc = read(tty_fd, hello_req, sizeof(*hello_req));
+	if (rc < (int) sizeof(hello_req)) {
+		printf("error receiving hello, wrong packet size\n");
+		return -1;
+	}
+
+	rc = check_mode(hello_req->mode, mode);
+	if (rc < 0) {
+		printf("mode %d is not the expected mode %d\n",
+		       hello_req->mode, mode);
+		return -1;
+	}
+
+	return 0;
+}
+
 int hello_response(int tty_fd, int mode)
 {
 	struct sah_hello_req hello_req;
 	struct sah_hello_resp hello_resp;
 	int rc;
 
-	rc = read(tty_fd, &hello_req, sizeof(hello_req));
-	if (rc < (int) sizeof(hello_req)) {
-		printf("error receiving hello, wrong packet size\n");
-		return -1;
-	}
-
-	rc = check_mode(hello_req.mode, mode);
-	if (rc < 0) {
-		printf("mode %d is not the expected mode %d\n",
-		       hello_req.mode, mode);
-		return -1;
-	}
+	read_hello_data(tty_fd, mode, &hello_req);
 
 	hello_resp.header.command = SAH_COMMAND_HELLO_RESP;
 	hello_resp.header.packet_size = sizeof(hello_resp);
@@ -62,6 +71,7 @@ int hello_response(int tty_fd, int mode)
 	hello_resp.min_version = hello_req.min_version;
 	hello_resp.status = 0;
 	hello_resp.mode = hello_req.mode;
+	memcpy(hello_resp.appended, hello_req.appended, sizeof(hello_req.appended));
 
 	rc = write(tty_fd, &hello_resp, sizeof(hello_resp));
 	if (rc < (int) sizeof(hello_resp)) {
@@ -260,7 +270,12 @@ int check_efs_file_request(unsigned char name[20])
 int request_efs_data(int tty_fd,
 		     struct sah_memory_read_req memory_read_req)
 {
+	char chunk_data[MAX_MEMORY_CHUNK_SIZE];
 	char file_data[MAX_DATA_SEND_SIZE];
+	unsigned int size_read = 0;
+	fd_set fds;
+	struct timeval timeout;
+	int size;
 	int rc;
 
 	rc = write(tty_fd, &memory_read_req, sizeof(memory_read_req));
@@ -269,10 +284,33 @@ int request_efs_data(int tty_fd,
 		return -1;
 	}
 
-	rc = read(tty_fd, &file_data, memory_read_req.size);
-	if (rc < (int) memory_read_req.size) {
-		printf("failed to read memory table data\n");
-		return -1;
+	FD_ZERO(&fds);
+	FD_SET(tty_fd, &fds);
+
+	while (size_read < memory_read_req.size) {
+		if (memory_read_req.size - size_read > MAX_MEMORY_CHUNK_SIZE)
+			size = MAX_MEMORY_CHUNK_SIZE;
+		else
+			size = memory_read_req.size - size_read;
+
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 500000;
+		rc = select(tty_fd+1, &fds, NULL, NULL, &timeout);
+		if (rc <= 0) {
+			printf("failed to set timeout\n");
+			return -1;
+		}
+		rc = read(tty_fd, &chunk_data, size);
+		if (rc < 1) {
+			printf("failed to read memory table data\n");
+			printf("received %d out of %d\n", rc, size);
+			printf("%d of %d read so far\n", size_read,
+			       memory_read_req.size);
+			return -1;
+		}
+
+		memcpy(&file_data[size_read], chunk_data, rc);
+		size_read += rc;
 	}
 
 	printf("successfully received EFS data\n");
@@ -312,9 +350,9 @@ int efs_sync(int tty_fd)
 		return -1;
 	}
 
-	printf("requested file %s with address %d and size %d\n",
-	       memory_table.file, memory_table.address,
-	       memory_table.size);
+	printf("requested file %s (alt file name '%s') with address %d and size %d\n",
+	       memory_table.file, memory_table.empty,
+	       memory_table.address, memory_table.size);
 
 	rc = check_efs_file_request(memory_table.file);
 	if (rc < 0) {
@@ -331,8 +369,8 @@ int efs_sync(int tty_fd)
 	memory_read_req.size = memory_table.size;
 	do {
 		rc = request_efs_data(tty_fd, memory_read_req);
-		// abort after 3 retries
-		if (i++ > 2)
+		// abort after 5 retries
+		if (i++ > 4 && rc < 0)
 			break;
 	} while (rc < 0);
 
@@ -350,16 +388,17 @@ int efs_sync(int tty_fd)
 		return -1;
 	} else if (header.command != SAH_COMMAND_RESET_RESP) {
 		printf("received command %d instead of reset response\n",
-			header.command);
+		       header.command);
 		return -1;
 	}
 
 	return 0;
 }
 
-int handle_memory_debug(int tty_fd)
+int handle_memory_debug(int tty_fd, int *hellos)
 {
 	struct sah_header header;
+	struct sah_hello_req hello_req;
 	int rc;
 
 	rc = read(tty_fd, &header, sizeof(header));
@@ -371,12 +410,25 @@ int handle_memory_debug(int tty_fd)
 	switch (header.command) {
 	case SAH_COMMAND_HELLO_REQ:
 		printf("received hello\n");
-		rc = hello_response(tty_fd, SAH_MODE_MEMORY_DEBUG);
-		if (rc < 0) {
-			printf("failed to send hello response\n");
-			return -1;
+		// Modem doesn't like it if the second hello is
+		// answered, so only read data and keep quiet.
+		if (++(*hellos) == 2) {
+			rc = read_hello_data(tty_fd,
+					     SAH_MODE_MEMORY_DEBUG,
+					     &hello_req);
+			if (rc < 0) {
+				printf("failed to read hello data\n");
+				return -1;
+			}
+		} else {
+			rc = hello_response(tty_fd,
+					    SAH_MODE_MEMORY_DEBUG);
+			if (rc < 0) {
+				printf("failed to send hello response\n");
+				return -1;
+			}
+			printf("sent hello response\n");
 		}
-		printf("sent hello response\n");
 		break;
 	case SAH_COMMAND_MEMORY_DEBUG_REQ:
 		printf("received memory debug command\n");
@@ -385,7 +437,7 @@ int handle_memory_debug(int tty_fd)
 			printf("failed to receive EFS data\n");
 			return -1;
 		}
-		printf("successful EFS sync\n");
+		printf("finished EFS sync\n");
 		break;
 	default:
 		printf("received unknown command %d with size %d\n",

@@ -53,7 +53,7 @@ int configure_tty(int *tty_fd, time_t timeout_sec, long int timeout_usec)
 	timeout.tv_sec = timeout_sec;
 	timeout.tv_usec = timeout_usec;
 
-	rc = select(tty_dev+1, NULL, &fds, NULL, &timeout);
+	rc = select(tty_dev+1, &fds, NULL, NULL, &timeout);
 	if (rc <= 0) {
 		printf("failed to set timeout\n");
 		return -1;
@@ -69,6 +69,7 @@ int main()
 	int mdm_dev, tty_dev;
 	int mode;
 	struct sah_data_end_ack data_end_ack;
+	int hellos = 0;
 	int rc;
 
 	mdm_dev = open(MDM_DEVICE, O_RDONLY | O_NONBLOCK);
@@ -141,7 +142,7 @@ int main()
 	}
 
 	while (1) {
-		rc = handle_memory_debug(tty_dev);
+		rc = handle_memory_debug(tty_dev, &hellos);
 		if (rc < 0) {
 			printf("error during modem operation\n");
 			return -1;
