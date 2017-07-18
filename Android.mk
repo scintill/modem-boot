@@ -19,7 +19,9 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES := boot.c
+LOCAL_SRC_FILES := \
+	boot.c \
+	sahara.c
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)

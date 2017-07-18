@@ -25,6 +25,7 @@
 #define WAKE_CHARM		_IO(CHARM_CODE, 1)
 #define NORMAL_BOOT_DONE	_IOW(CHARM_CODE, 5, int)
 #define WAIT_FOR_ERROR		_IOW(CHARM_CODE, 12, int)
+#define WAIT_FOR_RESTART	_IOR(CHARM_CODE, 7, int)
 
 #define MAX_DATA_SEND_SIZE 1*1024*1024
 
@@ -40,5 +41,10 @@
 #define FILE_SBL1 "/firmware/image/sbl1.mbn"
 #define FILE_SBL2 "/firmware/image/sbl2.mbn"
 #define FILE_RPM  "/firmware/image/rpm.mbn"
+
+// EFS sync
+#define SYNC_PATH "/dev/block/modem/dump_path/"
+#define SYNC_EFS1 "m9kefs1"
+#define SYNC_EFS2 "m9kefs2"
 
 #endif
