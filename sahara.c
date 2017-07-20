@@ -63,7 +63,11 @@ int hello_response(int tty_fd, int mode)
 	struct sah_hello_resp hello_resp;
 	int rc;
 
-	read_hello_data(tty_fd, mode, &hello_req);
+	rc = read_hello_data(tty_fd, mode, &hello_req);
+	if (rc < 0) {
+		printf("error receiving hello data\n");
+		return -1;
+	}
 
 	hello_resp.header.command = SAH_COMMAND_HELLO_RESP;
 	hello_resp.header.packet_size = sizeof(hello_resp);
@@ -350,9 +354,9 @@ int efs_sync(int tty_fd)
 		return -1;
 	}
 
-	printf("requested file %s (alt file name '%s') with address %d and size %d\n",
-	       memory_table.file, memory_table.empty,
-	       memory_table.address, memory_table.size);
+	printf("requested file %s with address %d and size %d\n",
+	       memory_table.file, memory_table.address,
+	       memory_table.size);
 
 	rc = check_efs_file_request(memory_table.file);
 	if (rc < 0) {
