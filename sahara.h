@@ -99,6 +99,6 @@ struct sah_memory_table {
 } __attribute__((__packed__));
 
 int send_file(int tty_fd, struct sah_data_end_ack *data_end_ack);
-int handle_memory_debug(int tty_fd, int *hellos);
+int handle_memory_debug(int tty_fd);
 
 #endif

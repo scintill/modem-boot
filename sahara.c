@@ -399,10 +399,11 @@ int efs_sync(int tty_fd)
 	return 0;
 }
 
-int handle_memory_debug(int tty_fd, int *hellos)
+int handle_memory_debug(int tty_fd)
 {
 	struct sah_header header;
 	struct sah_hello_req hello_req;
+	static int i = 0;
 	int rc;
 
 	rc = read(tty_fd, &header, sizeof(header));
@@ -416,7 +417,7 @@ int handle_memory_debug(int tty_fd, int *hellos)
 		printf("received hello\n");
 		// Modem doesn't like it if the second hello is
 		// answered, so only read data and keep quiet.
-		if (++(*hellos) == 2) {
+		if (++i == 2) {
 			rc = read_hello_data(tty_fd,
 					     SAH_MODE_MEMORY_DEBUG,
 					     &hello_req);

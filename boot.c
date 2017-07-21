@@ -69,7 +69,6 @@ int main()
 	int mdm_dev, tty_dev;
 	int mode;
 	struct sah_data_end_ack data_end_ack;
-	int hellos = 0;
 	int rc;
 
 	mdm_dev = open(MDM_DEVICE, O_RDONLY | O_NONBLOCK);
@@ -142,7 +141,7 @@ int main()
 	}
 
 	while (1) {
-		rc = handle_memory_debug(tty_dev, &hellos);
+		rc = handle_memory_debug(tty_dev);
 		if (rc < 0) {
 			printf("error during modem operation\n");
 			return -1;
