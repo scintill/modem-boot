@@ -55,7 +55,7 @@ int configure_tty(int *tty_fd, time_t timeout_sec, long int timeout_usec)
 
 	rc = select(tty_dev+1, &fds, NULL, NULL, &timeout);
 	if (rc <= 0) {
-		printf("failed to set timeout\n");
+		printf("failed waiting to read\n");
 		return -1;
 	}
 
@@ -67,7 +67,6 @@ int configure_tty(int *tty_fd, time_t timeout_sec, long int timeout_usec)
 int main()
 {
 	int mdm_dev, tty_dev;
-	int mode;
 	struct sah_data_end_ack data_end_ack;
 	int rc;
 

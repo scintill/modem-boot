@@ -25,7 +25,7 @@
 #include <sahara.h>
 #include <i9305.h>
 
-int check_mode(int mode_recv, int mode_expected)
+static int check_mode(int mode_recv, int mode_expected)
 {
 	if ((mode_expected == SAH_MODE_TRANSFER_PENDING
 	     || mode_expected == SAH_MODE_TRANSFER_COMPLETE)
@@ -38,7 +38,7 @@ int check_mode(int mode_recv, int mode_expected)
 		return -1;
 }
 
-int read_hello_data(int tty_fd, int mode, struct sah_hello_req *hello_req)
+static int read_hello_data(int tty_fd, int mode, struct sah_hello_req *hello_req)
 {
 	int rc;
 
@@ -58,7 +58,7 @@ int read_hello_data(int tty_fd, int mode, struct sah_hello_req *hello_req)
 	return 0;
 }
 
-int hello_response(int tty_fd, int mode)
+static int hello_response(int tty_fd, int mode)
 {
 	struct sah_hello_req hello_req;
 	struct sah_hello_resp hello_resp;
@@ -87,7 +87,7 @@ int hello_response(int tty_fd, int mode)
 	return 0;
 }
 
-int hello_handshake(int tty_fd, int mode)
+static int hello_handshake(int tty_fd, int mode)
 {
 	struct sah_header header;
 	int rc;
@@ -111,7 +111,7 @@ int hello_handshake(int tty_fd, int mode)
 	return 0;
 }
 
-int file_for_id(unsigned int id, char **file)
+static int file_for_id(unsigned int id, char **file)
 {
 	switch (id) {
 	case 6:
@@ -154,7 +154,7 @@ int file_for_id(unsigned int id, char **file)
 	return 0;
 }
 
-int send_data(int tty_fd, struct sah_header *header)
+static int send_data(int tty_fd, struct sah_header *header)
 {
 	struct sah_data_req data_req;
 	char *file = NULL;
@@ -261,7 +261,7 @@ int send_file(int tty_fd, struct sah_data_end_ack *data_end_ack)
 	return 0;
 }
 
-int check_efs_file_request(unsigned char name[20])
+static int check_efs_file_request(unsigned char name[20])
 {
 	unsigned char efs1[20] = SYNC_EFS1;
 	unsigned char efs2[20] = SYNC_EFS2;
@@ -272,7 +272,7 @@ int check_efs_file_request(unsigned char name[20])
 		return -1;
 }
 
-int request_efs_data(int tty_fd,
+static int request_efs_data(int tty_fd,
 		     struct sah_memory_read_req memory_read_req)
 {
 	char chunk_data[MAX_MEMORY_CHUNK_SIZE];
@@ -302,7 +302,7 @@ int request_efs_data(int tty_fd,
 		timeout.tv_usec = 500000;
 		rc = select(tty_fd+1, &fds, NULL, NULL, &timeout);
 		if (rc <= 0) {
-			printf("failed to set timeout\n");
+			printf("failed waiting to read\n");
 			return -1;
 		}
 		rc = read(tty_fd, &chunk_data, size);
@@ -324,7 +324,7 @@ int request_efs_data(int tty_fd,
 	return 0;
 }
 
-int efs_sync(int tty_fd)
+static int efs_sync(int tty_fd)
 {
 	struct sah_memory_debug_req memory_debug_req;
 	struct sah_memory_read_req memory_read_req;
@@ -365,7 +365,7 @@ int efs_sync(int tty_fd)
 		return -1;
 	}
 
-	if( memory_table.size > MAX_DATA_SEND_SIZE) {
+	if (memory_table.size > MAX_DATA_SEND_SIZE) {
 		printf("requested memory table size is too big\n");
 		return -1;
 	}
@@ -404,7 +404,7 @@ int handle_memory_debug(int tty_fd)
 {
 	struct sah_header header;
 	struct sah_hello_req hello_req;
-	static int i = 0;
+	static int hello_count = 0;
 	int rc;
 
 	rc = read(tty_fd, &header, sizeof(header));
@@ -418,7 +418,7 @@ int handle_memory_debug(int tty_fd)
 		printf("received hello\n");
 		// Modem doesn't like it if the second hello is
 		// answered, so only read data and keep quiet.
-		if (++i == 2) {
+		if (++hello_count == 2) {
 			rc = read_hello_data(tty_fd,
 					     SAH_MODE_MEMORY_DEBUG,
 					     &hello_req);
